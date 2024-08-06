@@ -1,38 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Spreadsheet from 'react-spreadsheet';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 
-const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const initialData = [
-  [{ value: 'Item' }, ...months.map(month => ({ value: month }))],
-  ['Product A', ...Array(12).fill({ value: 0 })],
-  ['Product B', ...Array(12).fill({ value: 0 })],
-  ['Product C', ...Array(12).fill({ value: 0 })],
-];
+const parseCsv = (csvContent) => {
+  const rows = csvContent.split('\n');
+  return rows.map(row => row.split(',').map(cell => ({ value: cell.trim() })));
+};
 
 const Index = () => {
-  const [revenueData, setRevenueData] = useState(initialData);
-  const [costData, setCostData] = useState(initialData);
+  const [revenueData, setRevenueData] = useState([]);
+  const [costData, setCostData] = useState([]);
 
-  const handleDataChange = (dataType, newData) => {
-    const updateFunction = dataType === 'revenue' ? setRevenueData : setCostData;
-    updateFunction(newData);
-  };
+  const handleFileUpload = useCallback((event, dataType) => {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      const parsedData = parseCsv(content);
+      if (dataType === 'revenue') {
+        setRevenueData(parsedData);
+      } else {
+        setCostData(parsedData);
+      }
+    };
+    reader.readAsText(file);
+  }, []);
 
   const renderSpreadsheet = (data, dataType) => (
     <Spreadsheet
       data={data}
-      onChange={(newData) => handleDataChange(dataType, newData)}
+      onChange={(newData) => dataType === 'revenue' ? setRevenueData(newData) : setCostData(newData)}
       className="w-full"
     />
   );
 
-  const chartData = months.map((month, index) => ({
-    name: month,
+  const chartData = revenueData[0]?.slice(1).map((_, index) => ({
+    name: revenueData[0][index + 1]?.value,
     revenue: revenueData.slice(1).reduce((sum, row) => sum + (parseFloat(row[index + 1]?.value) || 0), 0),
     cost: costData.slice(1).reduce((sum, row) => sum + (parseFloat(row[index + 1]?.value) || 0), 0),
-  }));
+  })) || [];
 
   return (
     <div className="container mx-auto p-4">
@@ -40,11 +49,33 @@ const Index = () => {
       
       <div className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Revenue</h2>
+        <div className="flex items-center mb-4">
+          <Input
+            type="file"
+            accept=".csv"
+            onChange={(e) => handleFileUpload(e, 'revenue')}
+            className="mr-2"
+          />
+          <Button>
+            <Upload className="mr-2 h-4 w-4" /> Upload CSV
+          </Button>
+        </div>
         {renderSpreadsheet(revenueData, 'revenue')}
       </div>
       
       <div className="mb-8">
         <h2 className="text-2xl font-semibold mb-4">Cost</h2>
+        <div className="flex items-center mb-4">
+          <Input
+            type="file"
+            accept=".csv"
+            onChange={(e) => handleFileUpload(e, 'cost')}
+            className="mr-2"
+          />
+          <Button>
+            <Upload className="mr-2 h-4 w-4" /> Upload CSV
+          </Button>
+        </div>
         {renderSpreadsheet(costData, 'cost')}
       </div>
       
